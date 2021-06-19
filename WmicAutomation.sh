@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 ### ==============================================================================
-### Created by RAMOND Valentin
+### Created by Migoliatte
 ### Automation of multiple WMIC commands allowing supervision of a Windows unit 
 ### ==============================================================================
 
