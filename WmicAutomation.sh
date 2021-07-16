@@ -1,13 +1,11 @@
 #!/usr/bin/env bash
 ### ==============================================================================
-### Created by Migoliatte
+### Created by RAMOND Valentin
 ### Automation of multiple WMIC commands allowing supervision of a Windows unit 
 ### ==============================================================================
 
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd -P)
 param=''
-#ip='192.168.20.166'
-#ip='192.168.85.157'
 ip='192.168.162.157'
 fileInformation=$(cat /tmp/test.txt)
 
@@ -56,7 +54,6 @@ function usage() {
                 Usage: $(basename "${BASH_SOURCE[0]}") [-h] [-l] [-v] -t FreePhysicalMemory-Win32_OperatingSystem
 
         "
-        listOfFunction
 }
 
 function listOfFunction() {
@@ -64,59 +61,231 @@ function listOfFunction() {
                 Available WMIC functions:
 
                 ${GREEN}Physical Memory : 
-                        FM, fm, freemem      FreePhysicalMemory
-                        TM, tm, totalmem     TotalPhysicalMemory
-                        UM, um, usedmem      UsedPhysicalMemory${NOFORMAT}
+                        FPM, fpm, freephymem   FreePhysicalMemory
+                        TPM, tpm, totalphymem  TotalPhysicalMemory
+                        UPM, upm, usedphymem   UsedPhysicalMemory${NOFORMAT}
                 ${YELLOW}Virtual Memory : 
-                        FP, fp, freepaging   FreeSpaceInPagingFiles
-                        SP, sp, sizepaging   SizeStoredInPagingFiles
-                        UP, up, usedpaging   UsedInPagingFiles
-                        ${NOFORMAT}
+                        FP,  fp,  freepaging   FreeSpaceInPagingFiles
+                        SP,  sp,  sizepaging   SizeStoredInPagingFiles
+                        UP,  up,  usedpaging   UsedInPagingFiles
+                        FVM, fvm, freevirtmem  FreeVirtualMemory 
+                        TVM, tvm, totalvirtmem TotalVirtualMemory 
+                        UVM, uvm, usedvirtmem   UsedVirtualMemory ${NOFORMAT}
+                ${YELLOW}Total${NOFORMAT} ${GREEN}Memory :${NOFORMAT}
+                        ${YELLOW}UTM, utm, usedtotalmem${NOFORMAT} ${GREEN}UsedTotalMemory ${NOFORMAT}
 
+                        
         "
 }
 
 function FreePhysicalMemory() {
-        warning=3210108
-        critical=3300000
-        echo "$(wmic -U $fileInformation //$ip "select FreePhysicalMemory from Win32_OperatingSystem" --option='client ntlmv2 auth'=Yes );$warning;$critical;"|grep ";"
-}
+        echo "----------- FreePhysicalMemory -----------"
+        #Appels de fonctions/Wmic
+        FreePhysicalMemoryValue=$(echo "$(wmic -U $fileInformation //$ip "select FreePhysicalMemory from Win32_OperatingSystem" --option='client ntlmv2 auth'=Yes )")
 
-function UsedPhysicalMemory() {
-        warning=1506823
-        critical=200000
-        free=$(echo $(wmic -U $fileInformation //$ip "select FreePhysicalMemory from Win32_OperatingSystem" --option='client ntlmv2 auth'=Yes|tail -n 1))
-        total=$(echo $(wmic -U $fileInformation //$ip "select TotalPhysicalMemory from Win32_ComputerSystem" --option='client ntlmv2 auth'=Yes|tail -n 1| cut -d "|" -f2))
-        used=$(($total/1000 - $free))
+        #Initialisation de variables
+        local warning=3210108
+        local critical=3300000
+
+        #Nettoyage chaine/Récuperation Value
+        FreePhysicalMemoryValue=$( echo $FreePhysicalMemoryValue|awk -F " " '{print $4}')
+        
+        #Traitement
+        FreePhysicalMemoryValue="$FreePhysicalMemoryValue;$warning;$critical"
+        
+        #Affichage / retour de la fonction
+        echo $FreePhysicalMemoryValue
 }
 
 function TotalPhysicalMemory() {
-        warning=0.5
-        critical=50
-        echo "$(wmic -U $fileInformation //$ip "select TotalPhysicalMemory from Win32_ComputerSystem" --option='client ntlmv2 auth'=Yes);$warning;$critical;"|grep ";"|cut -d "|" -f2 
+        echo "----------- TotalPhysicalMemory -----------"
+        #Appels de fonctions/Wmic
+        TotalPhysicalMemoryValue=$(( $(echo "$(wmic -U $fileInformation //$ip "select TotalPhysicalMemory from Win32_ComputerSystem" --option='client ntlmv2 auth'=Yes)"| awk -F "|" '{print $2}'| tail -n 1) / 1000 ))
+
+        #Initialisation de variables
+        local warning=4200000
+        local critical=4000000
+
+        #Traitement
+        TotalPhysicalMemoryValue="$TotalPhysicalMemoryValue;$warning;$critical"
+
+        #Affichage / retour de la fonction
+        echo $TotalPhysicalMemoryValue
+}
+
+function UsedPhysicalMemory() {
+        echo "----------- UsedPhysicalMemory -----------"
+        #Appels de fonctions/Wmic
+        FreePhysicalMemory FreePhysicalMemoryValue >/tmp/wmicAutomation.output
+        TotalPhysicalMemory TotalPhysicalMemoryValue >/tmp/wmicAutomation.output
+
+        #Initialisation de variables
+        local warning=1506823
+        local critical=200000
+
+        #Nettoyage chaine/Récuperation Value
+        FreePhysicalMemoryValue=$(echo $FreePhysicalMemoryValue|awk -F ";" '{print $1}')
+        TotalPhysicalMemoryValue=$(echo $TotalPhysicalMemoryValue|awk -F ";" '{print $1}')
+        
+        #Traitement
+        UsedPhysicalMemoryValue=$(($TotalPhysicalMemoryValue - $FreePhysicalMemoryValue))
+        UsedPhysicalMemoryValue="$UsedPhysicalMemoryValue;$warning;$critical"
+
+        #Affichage / retour de la fonction
+        echo "$UsedPhysicalMemoryValue"
 }
 
 function SizeStoredInPagingFiles(){
-        warning=80000
-        critical=100000
-        echo "$(wmic -U $fileInformation //$ip "select SizeStoredInPagingFiles from Win32_OperatingSystem" --option='client ntlmv2 auth'=Yes);$warning;$critical;"|grep ";"    
+        echo "----------- SizeStoredInPagingFiles -----------"
+        #Appels de fonctions/Wmic
+        SizeStoredInPagingFilesValue=$(echo "$(wmic -U $fileInformation //$ip "select SizeStoredInPagingFiles from Win32_OperatingSystem" --option='client ntlmv2 auth'=Yes);"|grep ";"    )
+
+        #Initialisation de variables
+        local warning=80000
+        local critical=100000
+        
+        #Traitement
+        SizeStoredInPagingFilesValue="$SizeStoredInPagingFilesValue;$warning;$critical"
+
+        #Affichage / retour de la fonction
+        echo $SizeStoredInPagingFilesValue
 }
 
-
 function FreeSpaceInPagingFiles(){
-        warning=80000
-        critical=100000
-        test=$(echo "$(wmic -U $fileInformation //$ip "select FreeSpaceInPagingFiles from Win32_OperatingSystem" --option='client ntlmv2 auth'=Yes);$warning;$critical;"|grep ";")  
+        echo "----------- FreeSpaceInPagingFiles -----------"
+        #Appels de fonctions/Wmic
+        FreeSpaceInPagingFilesValue = $(echo "$(wmic -U $fileInformation //$ip "select FreeSpaceInPagingFiles from Win32_OperatingSystem" --option='client ntlmv2 auth'=Yes);$warning;$critical;"|grep ";")
+
+        #Initialisation de variables
+        local warning=80000
+        local critical=100000
+
+        #Traitement
+        FreeSpaceInPagingFilesValue="$FreeSpaceInPagingFilesValue;$warning;$critical"
+
+        #Affichage / retour de la fonction
+        echo $FreeSpaceInPagingFilesValue
 }
 
 function UsedInPagingFiles(){
-        echo "not free"
-        warning=80000
-        critical=100000
-        free =$(echo "$(wmic -U $fileInformation //$ip "select FreeSpaceInPagingFiles from Win32_OperatingSystem" --option='client ntlmv2 auth'=Yes);$warning;$critical;"|grep ";") 
-        total=$(echo "$(wmic -U $fileInformation //$ip "select SizeStoredInPagingFiles from Win32_OperatingSystem" --option='client ntlmv2 auth'=Yes);$warning;$critical;"|grep ";")   
-        used=$(($total - $free))
-        echo "$used"
+        echo "----------- UsedInPagingFiles -----------"
+        #Appels de fonctions/Wmic
+        FreeSpaceInPagingFiles FreeSpaceInPagingFilesValue
+        SizeStoredInPagingFiles SizeStoredInPagingFilesValue
+
+        #Initialisation de variables
+        local warning=80000
+        local critical=100000
+
+        #Nettoyage chaine/Récuperation Value
+        FreeSpaceInPagingFiles=$(echo $FreeSpaceInPagingFiles|awk -F ";" '{print $1}')
+        SizeStoredInPagingFilesValue=$(echo $SizeStoredInPagingFilesValue|awk -F ";" '{print $1}')
+        
+        #Traitement
+        UsedInPagingFilesValue=$(($SizeStoredInPagingFilesValue - $FreeSpaceInPagingFiles))
+        UsedInPagingFilesValue="$UsedInPagingFilesValue;$warning;$critical"
+
+        #Affichage / retour de la fonction
+        echo $UsedInPagingFilesValue
+}
+
+function FreeVirtualMemory(){
+        echo "----------- FreeVirtualMemory -----------"
+        #Appels de fonctions/Wmic
+        FreeVirtualMemoryValue=$(echo "$(wmic -U $fileInformation //$ip "select FreeVirtualMemory from Win32_OperatingSystem" --option='client ntlmv2 auth'=Yes);"|grep ";")
+
+        #Initialisation de variables
+        local warning=80000
+        local critical=100000
+
+        #Traitement
+        FreeVirtualMemoryValue="$FreeVirtualMemoryValue;$warning;$critical"
+
+        #Affichage / retour de la fonction
+        echo $FreeVirtualMemoryValue
+}
+
+function TotalVirtualMemory(){
+        echo "----------- TotalVirtualMemory -----------"
+        #Appels de fonctions/Wmic
+        TotalVirtualMemoryValue=$(echo "$(wmic -U $fileInformation //$ip "select TotalVirtualMemorySize from Win32_OperatingSystem" --option='client ntlmv2 auth'=Yes);"|grep ";")
+
+        #Initialisation de variables
+        local warning=80000
+        local critical=100000
+
+        #Traitement
+        TotalVirtualMemoryValue="$TotalVirtualMemoryValue;$warning;$critical"
+
+        #Affichage / retour de la fonction
+        echo $TotalVirtualMemoryValue
+}
+
+function UsedVirtualMemory(){
+        echo "----------- UsedVirtualMemory -----------"
+        #Appels de fonctions/Wmic
+        FreeVirtualMemory FreeVirtualMemoryValue   >/tmp/wmicAutomation.output
+        TotalVirtualMemory TotalVirtualMemoryValue >/tmp/wmicAutomation.output
+
+        #Initialisation de variables
+        local warning=80000
+        local critical=100000
+
+        #Nettoyage chaine/Récuperation Value
+        FreeVirtualMemoryValue=$(echo $FreeVirtualMemoryValue|awk -F ";" '{print $1}')
+        TotalVirtualMemoryValue=$(echo $TotalVirtualMemoryValue|awk -F ";" '{print $1}')
+
+        #Traitement
+        UsedVirtualMemoryValue=$(($TotalVirtualMemoryValue - $FreeVirtualMemoryValue))
+        UsedVirtualMemoryValue="$UsedVirtualMemoryValue;$warning;$critical"
+
+        #Affichage / retour de la fonction
+        echo $UsedVirtualMemoryValue
+}
+
+function UsedTotalMemory(){
+        echo "----------- UsedTotalMemory -----------"
+        #Appels de fonctions/Wmic
+        UsedVirtualMemory UsedVirtualMemoryValue     >/tmp/wmicAutomation.output
+        TotalVirtualMemory TotalVirtualMemoryValue   >/tmp/wmicAutomation.output
+        UsedPhysicalMemory UsedPhysicalMemoryValue   >/tmp/wmicAutomation.output
+        TotalPhysicalMemory TotalPhysicalMemoryValue >/tmp/wmicAutomation.output
+
+        #Initialisation de variables
+        local warning=30
+        local critical=60
+ 
+        #Nettoyage chaine/Récuperation Value
+        UsedVirtualMemoryValue=$(echo $UsedVirtualMemoryValue|awk -F ";" '{print $1}')
+        TotalVirtualMemoryValue=$(echo $TotalVirtualMemoryValue|awk -F ";" '{print $1}')
+        UsedPhysicalMemoryValue=$(echo $UsedPhysicalMemoryValue|awk -F ";" '{print $1}')
+        TotalPhysicalMemoryValue=$(echo $TotalPhysicalMemoryValue|awk -F ";" '{print $1}')
+
+        #Traitement
+        UsedTotalMemoryValue=$(($UsedPhysicalMemoryValue + $UsedVirtualMemoryValue))
+        TotalSizeValue=$(($TotalVirtualMemoryValue+$TotalPhysicalMemoryValue))
+        pourcentage=$(($UsedTotalMemoryValue *100 / $TotalSizeValue))
+        pourcentage="$pourcentage;$warning;$critical"
+
+        #Affichage / retour de la fonction
+        echo $pourcentage
+}
+
+function globalCpuCharge(){
+        echo "----------- globalCpuCharge -----------"
+        #Appels de fonctions/Wmic
+        globalCpuChargeValue=$(echo $(wmic -U $fileInformation //$ip "select LoadPercentage from Win32_Processor" --option='client ntlmv2 auth'=Yes))
+        
+        #Initialisation de variables
+        local warning=80000
+        local critical=100000
+
+        #Traitement
+        globalCpuChargeValue="$globalCpuChargeValue;$warning;$critical"
+
+        #Affichage / retour de la fonction
+        echo $globalCpuChargeValue        	
+
 }
 
 #scp .\WmicAutomation.sh root@192.168.162.156:./scp/ ; ssh root@192.168.162.156 ./scp/WmicAutomation.sh 
@@ -149,12 +318,17 @@ function parse_params() {
 
 function parse_wmic(){
         case "$param" in
-                FM|fm|freemem)  FreePhysicalMemory ;;
-                TM|tm|totalmem) TotalPhysicalMemory ;;
-                UM|um|usedmem)  UsedPhysicalMemory ;;
+                FPM|fpm|freephymem)  FreePhysicalMemory ;;
+                TPM|tpm|totalphymem) TotalPhysicalMemory ;;
+                UPM|upm|usedphymem)  UsedPhysicalMemory ;;
                 FP|fp|freepaging) FreeSpaceInPagingFiles ;;
                 SP|sp|sizepaging) SizeStoredInPagingFiles ;;
                 UP|up|usedpaging) UsedInPagingFiles ;;
+                FVM|fvm|freevirtmem)  FreeVirtualMemory ;;
+                TVM|tvm|totalvirtmem) TotalVirtualMemory ;;
+                UVM|uvm|usedvirtmem)  UsedVirtualMemory ;;
+                UTM|utm|usedtotalmem)  UsedTotalMemory ;;
+                GCC|gcc|cpucharge) globalCpuCharge ;;
                 *) die "Unknown option: $param" ;;
         esac
 }
