@@ -1,17 +1,20 @@
 #!/usr/bin/env bash
 ### ==============================================================================
-### Created by Migoliatte
+### Created by RAMOND Valentin
 ### Automation of multiple WMIC commands allowing supervision of a Windows unit 
 ### ==============================================================================
 
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd -P)
 param=''
-ip='192.168.20.166'
+#ip='192.168.20.166'
+#ip='192.168.85.157'
+ip='192.168.162.157'
 fileInformation=$(cat /tmp/test.txt)
-if [ "$EUID" -ne 996 ]
-        then echo "Please don't run as centreon user"
-        exit
-fi
+
+#if [ "$EUID" -ne 996 ]
+#        then echo "Please don't run as centreon user"
+#        exit
+#fi
 
 function setup_colors() {
         if [[ -t 2 ]] && [[ -z "${NO_COLOR-}" ]] && [[ "${TERM-}" != "dumb" ]]; then
@@ -67,7 +70,8 @@ function listOfFunction() {
                 ${YELLOW}Virtual Memory : 
                         FP, fp, freepaging   FreeSpaceInPagingFiles
                         SP, sp, sizepaging   SizeStoredInPagingFiles
-                        UP, up, usedpaging   UsedInPagingFiles${NOFORMAT}
+                        UP, up, usedpaging   UsedInPagingFiles
+                        ${NOFORMAT}
 
         "
 }
@@ -102,24 +106,27 @@ function SizeStoredInPagingFiles(){
 function FreeSpaceInPagingFiles(){
         warning=80000
         critical=100000
-        echo "$(wmic -U $fileInformation //$ip "select FreeSpaceInPagingFiles from Win32_OperatingSystem" --option='client ntlmv2 auth'=Yes);$warning;$critical;"|grep ";"    
-
+        test=$(echo "$(wmic -U $fileInformation //$ip "select FreeSpaceInPagingFiles from Win32_OperatingSystem" --option='client ntlmv2 auth'=Yes);$warning;$critical;"|grep ";")  
 }
 
 function UsedInPagingFiles(){
+        echo "not free"
         warning=80000
         critical=100000
-        free=$(echo $(wmic -U $fileInformation //$ip "select FreeSpaceInPagingFiles from Win32_OperatingSystem" --option='client ntlmv2 auth'=Yes);$warning;$critical;|grep ";") 
-        total=$(echo $(wmic -U $fileInformation //$ip "select SizeStoredInPagingFiles from Win32_OperatingSystem" --option='client ntlmv2 auth'=Yes);$warning;$critical;|grep ";")   
+        free =$(echo "$(wmic -U $fileInformation //$ip "select FreeSpaceInPagingFiles from Win32_OperatingSystem" --option='client ntlmv2 auth'=Yes);$warning;$critical;"|grep ";") 
+        total=$(echo "$(wmic -U $fileInformation //$ip "select SizeStoredInPagingFiles from Win32_OperatingSystem" --option='client ntlmv2 auth'=Yes);$warning;$critical;"|grep ";")   
         used=$(($total - $free))
         echo "$used"
 }
 
+#scp .\WmicAutomation.sh root@192.168.162.156:./scp/ ; ssh root@192.168.162.156 ./scp/WmicAutomation.sh 
+
 function testWmicCommand(){
+        echo $param        
         PropertiesName=$( echo $param|cut -d "-" -f1 )
         ClassName=$( echo $param|cut -d "-" -f2 )
         echo "$PropertiesName <> $ClassName" 
-        echo $(echo $(wmic -U $fileInformation //$ip "select $PropertiesName from $ClassName" --option='client ntlmv2 auth'=Yes) )  
+        echo "$(wmic -U $fileInformation //$ip "select $PropertiesName from $ClassName" --option='client ntlmv2 auth'=Yes)"
 }
 
 function parse_params() {
